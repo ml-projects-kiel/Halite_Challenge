@@ -66,6 +66,44 @@ def find_closest_enemy(shipPos: tuple[int, int], board_array: np.ndarray) -> np.
     return enemy_ships[min_index]
 
 
+def return_to_shipyard(shipPos: tuple[int, int], shipyardPos: tuple[int, int], size: int):
+    direction = getDirTo(shipPos, shipyardPos, size)
+    if direction:
+        shipPos.next_action = direction
+
+
+def closest_shipyard(shipPos: tuple[int, int], board_array: np.ndarray) -> np.ndarray:
+    my_ship = np.array([shipPos[1], shipPos[0]])
+
+    # Create big board
+    arrays = [board_array[3] for _ in range(3)]
+    stack_col = np.concatenate(arrays, axis=0)
+    stack_all = np.concatenate([stack_col for _ in range(3)], axis=1)
+
+    yard = np.argwhere(stack_all == 1)
+    distances = [LA.norm(my_ship - pos, ord=1) for pos in yard]
+    min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
+    if len(min_index) > 1:
+        idx = random.choice(min_index)
+    else:
+        idx = min_index[0]
+    return yard[idx]
+
+
+def defend(
+    shipPos: tuple[int, int],
+    board: kaggle_environments.envs.halite.helpers.Board,
+    board_array: np.ndarray,
+):
+
+    bigshipPos = (shipPos[0] + board.configuration.size, shipPos[1] + board.configuration.size)
+    closest_yard = closest_shipyard(bigshipPos, board_array)
+    closest_yardTuple = (closest_yard[1], closest_yard[0])
+    direction = return_to_shipyard(bigshipPos, closest_yardTuple, board.configuration.size)
+    # Attack enemy
+    return direction
+
+
 def attack(
     shipPos: tuple[int, int],
     board: kaggle_environments.envs.halite.helpers.Board,
@@ -136,6 +174,10 @@ def agent(obs, config):
                     ship.next_action = direction
             if ship_states[ship.id] == "ATTACK":
                 direction = attack(ship.position, board, feature)
+                if direction:
+                    ship.next_action = direction
+            if ship_states[ship.id] == "DEFEND":
+                direction = defend(ship.position, board, feature)
                 if direction:
                     ship.next_action = direction
 
