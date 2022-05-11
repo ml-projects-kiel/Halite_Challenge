@@ -1,6 +1,6 @@
-# Imports helper functions
-import random
 import math
+import random
+
 import numpy as np
 from kaggle_environments import make
 from kaggle_environments.envs.halite.helpers import *
@@ -24,13 +24,20 @@ def getDirTo(fromPos, toPos, size):
     if fromX > toX:
         return ShipAction.WEST
 
-def newPosition (old_position, next_step):
+
+def newPosition(old_position, next_step):
     x, y = old_position
-    if next_step == ShipAction.NORTH: return (x, y+1)
-    if next_step == ShipAction.SOUTH: return (x, y-1)
-    if next_step == ShipAction.EAST: return (x+1, y)
-    if next_step == ShipAction.WEST: return (x-1, y)
-    if next_step == None: return (x, y)
+    if next_step == ShipAction.NORTH:
+        return (x, y + 1)
+    if next_step == ShipAction.SOUTH:
+        return (x, y - 1)
+    if next_step == ShipAction.EAST:
+        return (x + 1, y)
+    if next_step == ShipAction.WEST:
+        return (x - 1, y)
+    if next_step == None:
+        return (x, y)
+
 
 # better way to get information about the ships, halite, hubs and enemies
 def world_feature(board):
@@ -52,23 +59,20 @@ def world_feature(board):
 
     return np.concatenate([map_halite, ships, ship_cargo, bases], axis=0)
 
+
 def create_big_board(sub_board_array: np.ndarray) -> np.ndarray:
     arrays = [sub_board_array for _ in range(3)]
     stack_col = np.concatenate(arrays, axis=0)
     return np.concatenate([stack_col for _ in range(3)], axis=1)
+    #     x x x
+    #     x O x
+    #     x x x
 
-#     x x x
-#     x O x
-#     x x x
 
 ####################
 # Shipyard functions
 ####################
 
-def return_to_shipyard(shipPos: tuple[int, int], shipyardPos: tuple[int, int], size: int):
-    direction = getDirTo(shipPos, shipyardPos, size)
-    if direction:
-        shipPos.next_action = direction
 
 def find_closest_shipyard(shipPos: tuple[int, int], board_array: np.ndarray) -> np.ndarray:
     my_ship = np.array([shipPos[1], shipPos[0]])
@@ -87,6 +91,7 @@ def find_closest_shipyard(shipPos: tuple[int, int], board_array: np.ndarray) -> 
         idx = random.choice(min_index)
     return yard[idx]
 
+
 # Besten Port Builder finden
 def best_port_builder(board):
     me = board.current_player
@@ -101,10 +106,12 @@ def best_port_builder(board):
         idx = max_val[0]
     return ships[idx]
 
+
 # Basischeck
-def shipyard_alive(board:kaggle_environments.envs.halite.helpers.Board) -> bool:
+def shipyard_alive(board: kaggle_environments.envs.halite.helpers.Board) -> bool:
     me = board.current_player
     return len(me.shipyards) != 0
+
 
 def move_to_closest_shipyard(
     shipPos: tuple[int, int],
@@ -117,89 +124,83 @@ def move_to_closest_shipyard(
     if closest_yard is None:
         return None
     closest_yardTuple = (closest_yard[1], closest_yard[0])
-    direction = return_to_shipyard(bigshipPos, closest_yardTuple, board.configuration.size)
+    direction = getDirTo(bigshipPos, closest_yardTuple, board.configuration.size)
     # Attack enemy
     return direction
+
 
 ###################
 # Minning functions
 ###################
 
-sample_obs = env.state[0].observation
-board = Board(sample_obs, env.configuration)
-features = world_feature(board)
-cargo = features[2]
-cargo[0][1]
 
-def get_halite_pos(halite_map):
+def get_halite_pos(halite_map: np.ndarray) -> list[tuple[int, int, int]]:
     list_of_pos = []
     for i in range(halite_map.shape[0]):
         for j in range(halite_map.shape[1]):
             element = halite_map[i][j]
             if element > 0:
-                pos_tuple = (i,j, element)
-                list_of_pos.append(pos_tuple)
+                list_of_pos.append((i, j, element))
     return list_of_pos
 
-
-halie = get_halite_pos(features[0])
-type(halie)
 
 def manhattanDist(X1, Y1, X2, Y2):
     dist = math.fabs(X2 - X1) + math.fabs(Y2 - Y1)
     return (int)(dist)
 
-def find_halite(ship, halite_map):
-    distance = []
-    score = []
+
+def find_halite(
+    shipPos: tuple[int, int], halite_map: list[tuple[int, int, int]]
+) -> list[tuple[int, int, int, int]]:
     halite_score = []
-    me = board.current_player
-    for index, tuple in enumerate(halite_map):
-        score = tuple[2]
-        distance = manhattanDist(X1=ship.position[0],Y1=ship.position[1],X2= tuple[0], Y2= tuple[1])
-        result_tuple = (distance,score, tuple[0],tuple[1])
-        halite_score.append(result_tuple)
+    for _, halite_coords in enumerate(halite_map):
+        score = halite_coords[2]
+        distance = manhattanDist(
+            X1=shipPos[0], Y1=shipPos[1], X2=halite_coords[0], Y2=halite_coords[1]
+        )
+        halite_score.append((distance, score, halite_coords[0], halite_coords[1]))
     return halite_score
 
-result_list = []
 
-def calc_best_pos_halite(halite):
-    for index, tuple in enumerate(halite[0]):
-        distance = tuple[0]
-        value = tuple[1]
+def calc_best_pos_halite(halite: list[tuple[int, int, int, int]]) -> tuple[int, int]:
+    result_list = list()
+    for _, halite_coords in enumerate(halite):
+        distance = halite_coords[0]
+        value = halite_coords[1]
         result = distance * value
-        new_result = result,tuple[2], tuple[3]
-        result_list.append(new_result)
+        result_list.append((result, halite_coords[2], halite_coords[3]))
     min_value = optimize(result_list)
-    print(min_value)
-    for index, tuple in enumerate(halite[0]):
-        if tuple[0] == min_value:
-            pos = tuple[2], tuple[3]
-    return pos
+    for _, halite_coords in enumerate(halite):
+        if halite_coords[0] == min_value:
+            return halite_coords[2], halite_coords[3]
 
-def optimize(value_list):
+
+def optimize(value_list) -> int:
     tmp_list = []
     for elements in range(len(value_list)):
-        tmp_list.append(result_list[elements][0])
-    min_value = min(tmp_list)
-    return min_value
+        tmp_list.append(value_list[elements][0])
+    return min(tmp_list)
 
-def mining(halite_map):
+
+def mining(
+    shipPos: tuple[int, int],
+    board: kaggle_environments.envs.halite.helpers.Board,
+    board_array: np.ndarray,
+):
     """find coordination of best halite storage"""
-    size = config.size
-    me = board.current_player
-    ship_states = {}
-    for ship in me.ships:
-        pos_halite = get_halite_pos(halite_map)
-        list_of_halite_pos_and_distance = find_halite(ship,pos_halite)
-        best_halite = calc_best_pos_halite(list_of_halite_pos_and_distance)
-        direction = getDirTo(ship.position, best_halite, size)
-        if direction:
-            ship.next_action = direction
+    size = board.configuration.size
+    pos_halite = get_halite_pos(board_array[0])
+    list_of_halite_pos_and_distance = find_halite(shipPos, pos_halite)
+    best_halite_pos = calc_best_pos_halite(list_of_halite_pos_and_distance)
+    direction = getDirTo(shipPos, best_halite_pos, size)
+    return direction
+
 
 ##################
 # Attack functions
 ##################
+
+
 def find_closest_enemy(shipPos: tuple[int, int], board_array: np.ndarray) -> np.ndarray:
     my_ship = np.array([shipPos[1], shipPos[0]])
 
@@ -211,6 +212,7 @@ def find_closest_enemy(shipPos: tuple[int, int], board_array: np.ndarray) -> np.
     min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
     return enemy_ships[min_index]
 
+
 def neighboring_ships(shipPosS: np.ndarray, board_array: np.ndarray, size: int) -> int:
     cargo = board_array[2]
     cargo_val = [cargo[ship[0] % size, ship[1] % size] for ship in shipPosS]
@@ -219,6 +221,7 @@ def neighboring_ships(shipPosS: np.ndarray, board_array: np.ndarray, size: int) 
         return random.choice(max_val)
     else:
         return max_val[0]
+
 
 def attack(
     shipPos: tuple[int, int],
@@ -247,10 +250,8 @@ ship_states = {}
 
 # Returns the commands we send to our ships and shipyards
 def agent(obs, config):
-    size = config.size
     board = Board(obs, config)
     me = board.current_player
-    
 
     feature = world_feature(board)
 
@@ -266,35 +267,37 @@ def agent(obs, config):
                 ship.next_action = ShipAction.CONVERT
 
     ship_positions = []
-    
+
     ### Part 1: Set the ship's state
     for ship in me.ships:
         if ship.next_action == None:
             #######################
             # Logic
             #######################
-            # if ship.halite < 100:
-            ship_states[ship.id] = "ATTACK"
+            if ship.halite < 100:
+                ship_states[ship.id] = "ATTACK"
+            # if ship.halite >= 100:
+            # ship_states[ship.id] = "MINE"
             # if ship.halite < 200:  # If cargo is too low, collect halite
             # ship_states[ship.id] = "COLLECT"
-            # if ship.halite > 500:  # If cargo gets very big, deposit halite
-            # ship_states[ship.id] = "DEPOSIT"
+            if ship.halite >= 100:  # If cargo gets very big, deposit halite
+                ship_states[ship.id] = "DEPOSIT"
 
-        ### Part 2: Use the ship's state to select an action
-            if ship_states[ship.id] == "COLLECT":
-                direction = mining()
+            ### Part 2: Use the ship's state to select an action
+            if ship_states[ship.id] == "MINE":
+                direction = mining(ship.position, board, feature)
                 if direction:
                     ship.next_action = direction
-            if ship_states[ship.id] == "DEPOSIT":
+            elif ship_states[ship.id] == "DEPOSIT":
                 # Move towards shipyard to deposit cargo
                 direction = move_to_closest_shipyard(ship.position, board, feature)
                 if direction:
                     ship.next_action = direction
-            if ship_states[ship.id] == "ATTACK":
+            elif ship_states[ship.id] == "ATTACK":
                 direction = attack(ship.position, board, feature)
                 if direction:
                     ship.next_action = direction
-            if ship_states[ship.id] == "DEFEND":
+            elif ship_states[ship.id] == "DEFEND":
                 direction = move_to_closest_shipyard(ship.position, board, feature)
                 if direction:
                     ship.next_action = direction
@@ -305,7 +308,7 @@ def agent(obs, config):
                     ship.next_action = None
                     new_position = ship.position
             ship_positions.append(new_position)
-    
+
     ##############
     # Build Ships
     ##############
@@ -317,7 +320,5 @@ def agent(obs, config):
         if shipyards.next_action == None and spawnShip == True:
             if me.halite > 500 and len(me.ships) <= 10 and board.step > 5:
                 shipyards.next_action = ShipyardAction.SPAWN
-        
-        
 
     return me.next_actions
