@@ -5,11 +5,12 @@ description = ""
 authors = ["Janosch Hoefer", "Tom Wuest", "Nils Strickmann"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.11"
 kaggle-environments = "^1.9.9"
 ipython = "^8.3.0"
 ipykernel = "^6.13.0"
 torch = "^1.11.0"
+scipy = "^1.8.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
