@@ -2,9 +2,9 @@ import math
 import random
 
 import numpy as np
-from kaggle_environments import make
 from kaggle_environments.envs.halite.helpers import *
-from numpy import linalg as LA
+
+BOTNAME = "noAdmin"
 
 #################
 # Basic functions
@@ -81,7 +81,7 @@ def find_closest_shipyard(shipPos: tuple[int, int], board_array: np.ndarray) -> 
     stack_all = create_big_board(board_array[3])
 
     yard = np.argwhere(stack_all == 1)
-    distances = [LA.norm(my_ship - pos, ord=1) for pos in yard]
+    distances = [manhattanDist2(my_ship, pos) for pos in yard]
     min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
     if len(min_index) == 0:
         return None
@@ -149,6 +149,11 @@ def manhattanDist(X1, Y1, X2, Y2):
     return (int)(dist)
 
 
+def manhattanDist2(fromPos: tuple[int, int], toPos: tuple[int, int]):
+    dist = math.fabs(toPos[1] - fromPos[1]) + math.fabs(toPos[0] - fromPos[0])
+    return (int)(dist)
+
+
 def find_halite(
     shipPos: tuple[int, int], halite_map: list[tuple[int, int, int]]
 ) -> list[tuple[int, int, int, int]]:
@@ -208,7 +213,7 @@ def find_closest_enemy(shipPos: tuple[int, int], board_array: np.ndarray) -> np.
     stack_all = create_big_board(board_array[1])
 
     enemy_ships = np.argwhere(stack_all == -1)
-    distances = [LA.norm(my_ship - pos, ord=1) for pos in enemy_ships]
+    distances = [manhattanDist2(my_ship, pos) for pos in enemy_ships]
     min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
     return enemy_ships[min_index]
 
