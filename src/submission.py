@@ -200,7 +200,6 @@ def mining(
 # Attack functions
 ##################
 
-
 def find_closest_enemy(shipPos: tuple[int, int], board_array: np.ndarray) -> np.ndarray:
     my_ship = np.array([shipPos[1], shipPos[0]])
 
@@ -211,6 +210,33 @@ def find_closest_enemy(shipPos: tuple[int, int], board_array: np.ndarray) -> np.
     distances = [LA.norm(my_ship - pos, ord=1) for pos in enemy_ships]
     min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
     return enemy_ships[min_index]
+
+def find_closest_ship(shipPos: tuple[int, int], board_array: np.ndarray) -> np.ndarray:
+    my_ship = np.array([shipPos[1], shipPos[0]])
+
+    # Create big board
+    stack_all = create_big_board(board_array[1])
+
+    ship = np.argwhere(stack_all == -1)
+    distances = [LA.norm(my_ship - pos, ord=1) for pos in ship]
+    min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
+    return ship[min_index]
+
+def enemy_yard_distance(yard_pos: tuple[int, int], board_array: np.ndarray):
+    yard = np.array([yard_pos[1], yard_pos[0]])
+    # Create big board
+    stack_all = create_big_board(board_array[1])
+    enemy_ships = np.argwhere(stack_all == -1)
+    distances = [LA.norm(yard - pos, ord=1) for pos in enemy_ships]
+    return min(distances)
+
+def ship_yard_distance(yard_pos: tuple[int, int], board_array: np.ndarray):
+    yard = np.array([yard_pos[1], yard_pos[0]])
+    # Create big board
+    stack_all = create_big_board(board_array[1])
+    ships = np.argwhere(stack_all == 1)
+    distances = [LA.norm(yard - pos, ord=1) for pos in ships]
+    return min(distances)
 
 
 def neighboring_ships(shipPosS: np.ndarray, board_array: np.ndarray, size: int) -> int:
@@ -274,15 +300,31 @@ def agent(obs, config):
             #######################
             # Logic
             #######################
-            if ship.halite < 100:
-                ship_states[ship.id] = "ATTACK"
-            # if ship.halite >= 100:
-            # ship_states[ship.id] = "MINE"
-            # if ship.halite < 200:  # If cargo is too low, collect halite
-            # ship_states[ship.id] = "COLLECT"
-            if ship.halite >= 100:  # If cargo gets very big, deposit halite
-                ship_states[ship.id] = "DEPOSIT"
+            shipPos = ship.position
+            bigshipPos = (shipPos[0] + board.configuration.size, shipPos[1] + board.configuration.size)
 
+            if sum(value == "MINE" for value in ship_states.values())<=5 and ship.halite < 200: #If less than 5 miners and cargo of ship is too low, collect halite
+                
+                ship_states[ship.id] = "MINE"
+
+            if ship.halite >= 250:
+                ship_states[ship.id] = "DEPOSIT" # If cargo gets very big, deposit halite
+                
+            if sum(value == "MINE" for value in ship_states.values())>5 and ship.halite < 100 and sum(value == "ATTACK" for value in ship_states.values())<5:
+                ship_states[ship.id] = "ATTACK"
+                            
+            if enemy_yard_distance(bigshipPos, feature)-1==ship_yard_distance(bigshipPos, feature):
+                    shipPos = find_closest_ship(bigshipPos, feature)
+                    if shipPos.shape[0] == 0:
+                        return None
+                    elif shipPos.shape[0] == 1:
+                        idx = 0
+                    elif shipPos.shape[0] > 1:
+                        idx = neighboring_ships(shipPos, feature, board.configuration.size)
+                    shipPosTuple = (shipPos[idx][1], shipPos[idx][0])
+                    if ship_states[ship.position] == shipPosTuple:
+                        ship_states[ship.id] = "DEFEND"
+            
             ### Part 2: Use the ship's state to select an action
             if ship_states[ship.id] == "MINE":
                 direction = mining(ship.position, board, feature)
