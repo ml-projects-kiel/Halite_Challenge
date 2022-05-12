@@ -1,6 +1,5 @@
 import math
 import random
-from time import process_time_ns
 
 import numpy as np
 from kaggle_environments.envs.halite.helpers import *
@@ -135,49 +134,70 @@ def move_to_closest_shipyard(
 ###################
 
 
+def get_halite_pos(halite_map: np.ndarray) -> list[tuple[int, int, int]]:
+    list_of_pos = []
+    for i in range(halite_map.shape[0]):
+        for j in range(halite_map.shape[1]):
+            element = halite_map[i][j]
+            if element > 0:
+                list_of_pos.append((i, j, element))
+    return list_of_pos
+
+
+def manhattanDist(X1, Y1, X2, Y2):
+    dist = math.fabs(X2 - X1) + math.fabs(Y2 - Y1)
+    return (int)(dist)
+
+
 def manhattanDist2(fromPos: tuple[int, int], toPos: tuple[int, int]):
     dist = math.fabs(toPos[1] - fromPos[1]) + math.fabs(toPos[0] - fromPos[0])
     return (int)(dist)
 
 
-def find_pos_halite(shipPos: tuple, board_array: np.ndarray):
-    my_ship = np.array([shipPos[1], shipPos[0]])
-    stack = create_big_board(board_array[0])
-    halite = np.argwhere(stack > 0)
-    distances = [manhattanDist2(my_ship, pos) for pos in halite]
-    min_index = [idx for idx, dis in enumerate(distances) if dis < 8]
-    return halite[min_index]
+def find_halite(
+    shipPos: tuple[int, int], halite_map: list[tuple[int, int, int]]
+) -> list[tuple[int, int, int, int]]:
+    halite_score = []
+    for _, halite_coords in enumerate(halite_map):
+        score = halite_coords[2]
+        distance = manhattanDist(
+            X1=shipPos[0], Y1=shipPos[1], X2=halite_coords[0], Y2=halite_coords[1]
+        )
+        halite_score.append((distance, score, halite_coords[0], halite_coords[1]))
+    return halite_score
 
 
-def find_max_halite(halite_pos_array, board_array: np.ndarray, size):
-    stack = create_big_board(board_array[0])
-    halite_max = [stack[ship[0] % size, ship[1] % size] for ship in halite_pos_array]
-    max_val = [idx for idx, car in enumerate(halite_max) if car == max(halite_max)]
-    if len(max_val) > 1:
-        return random.choice(max_val)
-    else:
-        return max_val[0]
+def calc_best_pos_halite(halite: list[tuple[int, int, int, int]]) -> tuple[int, int]:
+    result_list = list()
+    for _, halite_coords in enumerate(halite):
+        distance = halite_coords[0]
+        value = halite_coords[1]
+        result = distance * value
+        result_list.append((result, halite_coords[2], halite_coords[3]))
+    min_value = optimize(result_list)
+    for _, halite_coords in enumerate(halite):
+        if halite_coords[0] == min_value:
+            return halite_coords[2], halite_coords[3]
+
+
+def optimize(value_list) -> int:
+    tmp_list = []
+    for elements in range(len(value_list)):
+        tmp_list.append(value_list[elements][0])
+    return min(tmp_list)
 
 
 def mining(
-    shipPos,
-    board,
-    board_array,
+    shipPos: tuple[int, int],
+    board: kaggle_environments.envs.halite.helpers.Board,
+    board_array: np.ndarray,
 ):
-    bigshipPos = (
-        shipPos[0] + board.configuration.size,
-        shipPos[1] + board.configuration.size,
-    )
-    enemyPos = find_pos_halite(bigshipPos, board_array)
-    if enemyPos.shape[0] == 0:
-        return random.choice(directions)
-    elif enemyPos.shape[0] == 1:
-        idx = 0
-    elif enemyPos.shape[0] > 1:
-        idx = find_max_halite(enemyPos, board_array, board.configuration.size)
-    enemyPosTuple = (enemyPos[idx][1], enemyPos[idx][0])
-    # get the direction to the enemy
-    direction = getDirTo(bigshipPos, enemyPosTuple, board.configuration.size)
+    """find coordination of best halite storage"""
+    size = board.configuration.size
+    pos_halite = get_halite_pos(board_array[0])
+    list_of_halite_pos_and_distance = find_halite(shipPos, pos_halite)
+    best_halite_pos = calc_best_pos_halite(list_of_halite_pos_and_distance)
+    direction = getDirTo(shipPos, best_halite_pos, size)
     return direction
 
 
@@ -227,57 +247,6 @@ def attack(
     return direction
 
 
-#######
-# Logic
-#######
-
-
-def find_best_defender(
-    bigshipPos: tuple[int, int],
-    board: kaggle_environments.envs.halite.helpers.Board,
-    board_array: np.ndarray,
-):
-    size = board.configuration.size
-    shipPos = find_closest_ship(bigshipPos, board_array)
-    if shipPos.shape[0] == 0:
-        return None
-    elif shipPos.shape[0] == 1:
-        idx = 0
-    elif shipPos.shape[0] > 1:
-        idx = neighboring_ships(shipPos, board_array, size)
-    return (shipPos[idx][1] % size, shipPos[idx][0] % size)
-
-
-def find_closest_ship(shipPos: tuple[int, int], board_array: np.ndarray) -> np.ndarray:
-    my_ship = np.array([shipPos[1], shipPos[0]])
-
-    # Create big board
-    stack_all = create_big_board(board_array[1])
-
-    ship = np.argwhere(stack_all == -1)
-    distances = [manhattanDist2(my_ship, pos) for pos in ship]
-    min_index = [idx for idx, dis in enumerate(distances) if dis == min(distances)]
-    return ship[min_index]
-
-
-def enemy_yard_distance(yard_pos: tuple[int, int], board_array: np.ndarray):
-    yard = np.array([yard_pos[1], yard_pos[0]])
-    # Create big board
-    stack_all = create_big_board(board_array[1])
-    enemy_ships = np.argwhere(stack_all == -1)
-    distances = [manhattanDist2(yard, pos) for pos in enemy_ships]
-    return min(distances)
-
-
-def ship_yard_distance(yard_pos: tuple[int, int], board_array: np.ndarray):
-    yard = np.array([yard_pos[1], yard_pos[0]])
-    # Create big board
-    stack_all = create_big_board(board_array[1])
-    ships = np.argwhere(stack_all == 1)
-    distances = [manhattanDist2(yard, pos) for pos in ships]
-    return min(distances)
-
-
 # Directions a ship can move
 directions = [ShipAction.NORTH, ShipAction.EAST, ShipAction.SOUTH, ShipAction.WEST]
 
@@ -302,71 +271,22 @@ def agent(obs, config):
             if ship.id == builder_id:
                 ship.next_action = ShipAction.CONVERT
 
-    # Create ship amount logic
-    ship_count = len([ship for ship in me.ships])
-    if ship_count < 3:
-        miners = ship_count
-        attackers = 0
-    else:
-        miners = math.ceil(ship_count * 2 / 3)
-        attackers = int(ship_count * 1 / 3)
-
     ship_positions = []
+
     ### Part 1: Set the ship's state
     for ship in me.ships:
         if ship.next_action == None:
             #######################
             # Logic
             #######################
-
-            shipPos = ship.position
-            bigshipPos = (
-                shipPos[0] + board.configuration.size,
-                shipPos[1] + board.configuration.size,
-            )
-            return_threshold = 100
-            return_threshold_attack = return_threshold
-
-            current_ship_state = ship_states.get(ship.id)
-            if current_ship_state == "ATTACK":
-                if ship.halite < return_threshold_attack:
-                    ship_states[ship.id] = "ATTACK"
-                    attackers -= 1
-                elif ship.halite >= return_threshold_attack:
-                    ship_states[ship.id] = "DEPOSIT"
-            elif current_ship_state == "MINE":
-                if ship.halite < return_threshold:
-                    ship_states[ship.id] = "MINE"
-                    miners -= 1
-                elif ship.halite >= return_threshold:
-                    ship_states[ship.id] = "DEPOSIT"
-            elif current_ship_state == "DEPOSIT":
-                if ship.halite > 0:
-                    ship_states[ship.id] = "DEPOSIT"
-                else:
-                    if miners:
-                        ship_states[ship.id] = "MINE"
-                    elif attackers:
-                        ship_states[ship.id] = "ATTACK"
-                    else:
-                        ship_states[ship.id] = "MINE"
-            else:
-                if miners:
-                    ship_states[ship.id] = "MINE"
-                    miners -= 1
-                elif attackers:
-                    ship_states[ship.id] = "ATTACK"
-                    attackers -= 1
-                else:
-                    ship_states[ship.id] = "MINE"
-
-            # Last Role Check
-            if enemy_yard_distance(bigshipPos, feature) - 1 == ship_yard_distance(
-                bigshipPos, feature
-            ):
-                shipPosTuple = find_best_defender(shipPos, board, feature)
-                if ship.position == shipPosTuple:
-                    ship_states[ship.id] = "DEFEND"
+            if ship.halite < 100:
+                ship_states[ship.id] = "ATTACK"
+            # if ship.halite >= 100:
+            # ship_states[ship.id] = "MINE"
+            # if ship.halite < 200:  # If cargo is too low, collect halite
+            # ship_states[ship.id] = "COLLECT"
+            if ship.halite >= 100:  # If cargo gets very big, deposit halite
+                ship_states[ship.id] = "DEPOSIT"
 
             ### Part 2: Use the ship's state to select an action
             if ship_states[ship.id] == "MINE":
@@ -403,7 +323,7 @@ def agent(obs, config):
             if position == shipyards.position:
                 spawnShip = False
         if shipyards.next_action == None and spawnShip == True:
-            if me.halite > 500 and len(me.ships) <= 10:
+            if me.halite > 500 and len(me.ships) <= 10 and board.step > 5:
                 shipyards.next_action = ShipyardAction.SPAWN
 
     return me.next_actions
