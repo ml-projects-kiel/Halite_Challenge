@@ -81,24 +81,26 @@ cargo voll - Gegner nah + viel Halite in Cargo
 ## Tasks
 
 **Paul**
-- check_port(board): bool => Does port exist?
-- find_best_port_builder(ship.ID:list, board): take ship with most halite-cargo => return ship.ID
-- build_port(ship.ID, board, costs)
+- [x] check_port(board): bool => Does port exist?
+- [x] find_best_port_builder(ship.ID:list, board): take ship with most halite-cargo => return ship.ID
+- [x] build_port(ship.ID, board, costs)
 
 **Janosch**
-- attack()
-- find_closest_enemy(ship.ID, board) => neighboring_ships(): -> enemy:ID
-- get_dir_to_obj(enemy.ID) -> DIR
+- [x] attack()
+- [x] find_closest_enemy(ship.ID, board) => neighboring_ships(): -> enemy:ID
+- [x] get_dir_to_obj(enemy.ID) -> DIR
 
 **Tom**
-- mine()
-- find_best_halite(ship.ID) -> halite.ID
-- get_dir_to_obj(halite.ID) -> DIR
-- collect()
-- deposit() => Wenn Hub in der Nähe && Ladung > X
-    - get_dir_to_obj(base.ID)
+- [x] mine()
+- [x] find_best_halite(ship.ID) -> halite.ID
+- [x] get_dir_to_obj(halite.ID) -> DIR
+- [x] collect()
+- [x] deposit() => Wenn Hub in der Nähe && Ladung > X
+    - [x] get_dir_to_obj(base.ID)
 
-
+**Nils**
+- [x] defend()
+- [x] when_defend()
 
 <table>
   <thead>
